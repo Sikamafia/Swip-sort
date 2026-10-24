@@ -1,0 +1,7 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+rust-core/target/
+app/src/main/jniLibs/*/libswipesort_core.so
