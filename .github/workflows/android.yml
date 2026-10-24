@@ -1,13 +1,20 @@
+
 name: Build Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,17 +25,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install Android SDK packages
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018"
 
       - name: Configure Android NDK
-        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_PATH"
 
       - name: Install Rust and Android targets
         uses: dtolnay/rust-toolchain@stable
@@ -44,16 +53,21 @@ jobs:
 
       - name: Copy Rust shared libraries
         run: |
-          mkdir -p app/src/main/jniLibs/arm64-v8a app/src/main/jniLibs/armeabi-v7a app/src/main/jniLibs/x86_64
+          set -eux
+          mkdir -p app/src/main/jniLibs/arm64-v8a
+          mkdir -p app/src/main/jniLibs/armeabi-v7a
+          mkdir -p app/src/main/jniLibs/x86_64
+
           cp rust-core/target/aarch64-linux-android/release/libswipesort_core.so app/src/main/jniLibs/arm64-v8a/
           cp rust-core/target/armv7-linux-androideabi/release/libswipesort_core.so app/src/main/jniLibs/armeabi-v7a/
           cp rust-core/target/x86_64-linux-android/release/libswipesort_core.so app/src/main/jniLibs/x86_64/
 
       - name: Build debug APK
-        run: gradle assembleDebug
+        run: gradle --no-daemon assembleDebug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: SwipeSort-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
